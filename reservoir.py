@@ -25,10 +25,13 @@ class ResonanceNetwork:
     self.spikes = np.zeros(nnodes)
     self.targets = np.repeat(targ_min, nnodes)
     self.acts = np.zeros(nnodes)
+    self.prespike_acts = np.zeros(nnodes)
   
   def get_acts(self, input):
     # Update activation in reservoir
     self.acts = self.acts*self.leak + np.dot(input, self.input_wmat) + np.dot(self.spikes, self.wmat)
+
+    self.prespike_acts = self.acts
 
     # Log spikes
     thresholds = self.targets*2
@@ -68,6 +71,8 @@ class ResonanceNetwork:
   def run(self, train_data):
     # Store data
     log_spikes = pd.DataFrame()
+    log_acts = pd.DataFrame()
+    log_wmat = pd.DataFrame()
 
     # Run model on data
     for row in range(len(train_data)):
@@ -78,8 +83,10 @@ class ResonanceNetwork:
       self.learning(prev_spikes, errors)
 
       log_spikes = pd.concat([log_spikes, pd.Series(self.spikes)], ignore_index=True, axis=1)
+      log_acts = pd.concat([log_acts, pd.Series(self.prespike_acts)], ignore_index=True, axis=1)
+      # log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
 
-    return log_spikes
+    return log_spikes, log_acts, log_wmat
 
   def echo(self, cue):
     # Log current state of reservoir
@@ -89,6 +96,8 @@ class ResonanceNetwork:
 
     # Store data
     log_spikes = pd.DataFrame()
+    log_acts = pd.DataFrame()
+    log_wmat = pd.DataFrame()
 
     # Run model on data
     for row in range(len(cue)):
@@ -99,10 +108,12 @@ class ResonanceNetwork:
       self.learning(prev_spikes, errors)
 
       log_spikes = pd.concat([log_spikes, pd.Series(self.spikes)], ignore_index=True, axis=1)
+      log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1) # self.prespike_acts
+      # log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
 
     # Return state of reservoir
     self.spikes = end_spikes
     self.targets = end_targets
     self.acts = end_acts
 
-    return log_spikes
+    return log_spikes, log_acts, log_wmat

@@ -8,15 +8,15 @@ from matplotlib import cm
 
 # Correlation matrix between spike states
 
-def correlate_states(train_spikes, cue_spikes):
-  plot_spikes = np.array(train_spikes.iloc[:,-12:])
-  plot_spikes = np.hstack((plot_spikes, np.array(cue_spikes)))
+def correlate_states(train_data, cue_data):
+  plot_data = np.array(train_data.iloc[:,-12:])
+  plot_data = np.hstack((plot_data, np.array(cue_data)))
   cor_matrix = np.zeros((16,16))
   for n in range(16):
-    x = plot_spikes[:,n]
+    x = plot_data[:,n]
     for r in range(16):
       if (r >= n):  
-        y = plot_spikes[:,r]
+        y = plot_data[:,r]
         res = np.around(scipy.stats.pearsonr(x, y)[0],2)
         cor_matrix[r,n]=res
       else:
