@@ -30,7 +30,7 @@ train_data = []
 train_labels = []
 input_key = '_'
 
-for _ in range(1000):
+for _ in range(4000):
   index1 = input_keys.index(input_key)
   input_key = random.choices(input_keys, weights=grammarmat[index1])[0]
   index2 = input_keys.index(input_key) 
@@ -38,17 +38,23 @@ for _ in range(1000):
   train_labels.append(input_key)
   train_data.append(input_dict[input_key])
 
+sliding_input = []
+sliding_labels = []
+for t in range(len(train_data)-1):
+  sliding_input.append(train_data[t] + train_data[t+1])
+  sliding_labels.append([train_labels[t], train_labels[t+1]])
+
 # Train model
 
-model = ResonanceNetwork(input_nnodes=len(train_data[0]), nnodes=100, p_link=0.1, leak=0.75, lrate_targ=0.01, lrate_wmat=0.1, targ_min=1)
+model = ResonanceNetwork(input_nnodes=len(sliding_input[0]), nnodes=100, p_link=0.1, leak=0.75, lrate_targ=0.01, lrate_wmat=0.1, targ_min=1)
 results = model.run(train_data, learn_on=True)
 
 # Cue trained model
 
 state = 0 # select data for correlations: 0 - spikes, 1 - activations, 2 - reservoir weights
 
-cue1 = [input_dict["man_s"], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0]]
-cue2 = [input_dict["dog_s"], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0]]
+cue1 = [input_dict["man_s"] + [0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0]]
+cue2 = [input_dict["dog_s"] + [0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0]]
 
 cue1_labels = ["man_s", "NA", "NA", "NA"]
 cue2_labels = ["dog_s", "NA", "NA", "NA"]

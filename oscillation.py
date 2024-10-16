@@ -16,14 +16,14 @@ results = model.run(train_data)
 
 # Cue trained model
 
-m = 0 # select matrix for correlations: 0 - spikes, 1 - activations, 2 - reservoir weights
+m = 1 # select matrix for correlations: 0 - spikes, 1 - activations, 2 - reservoir weights
 
 cue = [[0,0], [0,0], [0,0], [0,0]]
 cue_labels = ['NA', 'NA', 'NA', 'NA']
 
 cue_results = model.echo(cue)
 
-print(cue_results[0].sum(axis=0)) # fading memory
+print(cue_results[m].sum(axis=0)) # fading memory
 
 cue1_cor_matrix = correlate_states(results[m], cue_results[m])
 plot_correlations(cue1_cor_matrix, train_labels, cue_labels)

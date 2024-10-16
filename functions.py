@@ -52,3 +52,20 @@ def plot_correlations(r_mat, train_labels, cue_labels):
   fig.set_size_inches(13.75, 10)
 
   plt.show()
+
+# Plot weights over time
+
+def plot_weights(weights, timesteps, rows, cols):
+
+  fig, axes = plt.subplots(rows, cols, figsize=(15, 10))
+  axes = axes.flatten()
+
+  for t in range(timesteps):
+    matrix = np.array(weights.iloc[:,-(t+1)]).reshape((100,100))
+
+    im = axes[t].imshow(matrix, cmap='viridis', interpolation='nearest')
+    fig.colorbar(im, ax=axes[t])
+    axes[t].set_title(f"Time Step -{timesteps-t}")
+
+  plt.tight_layout()
+  plt.show()
