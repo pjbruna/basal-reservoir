@@ -136,3 +136,104 @@ class ResonanceNetwork:
     data = np.load(filename)
     self.wmat = list(data['weights'])
     print(f"Network loaded from {filename}")
+
+
+## NON SPIKING RESERVOIR ##
+
+class SlimeMoldReservoir:
+  def __init__(self, input_nnodes=None, nnodes=None, p_link=None, leak=None, lrate_targ=None, lrate_wmat=None, targ_min=None):
+    # Model hyperparameters
+    self.nnodes = nnodes
+    self.p_link = p_link
+    self.leak = leak
+    self.lrate_targ = lrate_targ
+    self.lrate_wmat = lrate_wmat
+    self.targ_min = targ_min
+
+    if input_nnodes is not None:
+      # Creat input layer and weights
+      self.input_wmat = np.random.choice([0,5], size=(input_nnodes, nnodes), p=[1-p_link, p_link]) # Try other weight values?
+
+      # Create internal weight matrix
+      self.link_mat = np.random.choice([0,1], size=(nnodes, nnodes), p=[1-p_link, p_link])
+      self.wmat = np.where(self.link_mat == 1, np.random.normal(0, 1, size=(nnodes, nnodes)), 0)
+
+      # Initialize reservoir state
+      self.targets = np.repeat(targ_min, nnodes)
+      self.acts = np.zeros(nnodes)
+  
+  def get_acts(self, input):
+    # Update activation in reservoir
+    self.acts = self.acts*self.leak + np.dot(input, self.input_wmat)
+
+    # Log errors
+    errors = self.acts-self.targets
+
+    return errors
+
+  def learning(self, errors):
+    d_wmat = np.zeros((self.nnodes, self.nnodes))
+    d_wmat[:,:] = errors*self.lrate_wmat
+    d_wmat[self.link_mat==0] = 0
+
+    active_neighbors = self.link_mat.copy()
+    active_neighbors = np.sum(active_neighbors, axis=0)
+
+    d_wmat = np.where(active_neighbors != 0, d_wmat / active_neighbors.astype(np.float64), 0)
+    self.wmat -= d_wmat
+
+    self.targets = self.targets + (errors*self.lrate_targ)
+    self.targets[self.targets<self.targ_min] = self.targ_min
+
+  def run(self, train_data, learn_on=True):
+    # Store data
+    log_acts = pd.DataFrame()
+    log_wmat = pd.DataFrame()
+
+    # Run model on data
+    for row in range(len(train_data)):
+      input = train_data[row]
+
+      errors = self.get_acts(input)
+
+      if learn_on==True:
+        self.learning(errors)
+
+      log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1)
+      log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
+
+    return log_acts, log_wmat
+
+  def echo(self, cue):
+    # Log current state of reservoir
+    end_targets = self.targets
+    end_acts = self.acts
+
+    # Store data
+    log_acts = pd.DataFrame()
+    log_wmat = pd.DataFrame()
+
+    # Run model on data
+    for row in range(len(cue)):
+      input = cue[row]
+
+      errors = self.get_acts(input)
+      self.learning(errors)
+
+      log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1) # self.prespike_acts
+      log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
+
+    # Return state of reservoir
+    self.targets = end_targets
+    self.acts = end_acts
+
+    return log_acts, log_wmat
+  
+#  def save(self, filename="net.npz"):
+#    np.savez(filename, weights=self.wmat)
+#    print(f"Network saved to {filename}")
+#
+#  def load(self, filename="net.npz"):
+#    data = np.load(filename)
+#    self.wmat = list(data['weights'])
+#    print(f"Network loaded from {filename}")
