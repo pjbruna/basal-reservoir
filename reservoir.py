@@ -176,10 +176,10 @@ class SlimeMoldReservoir:
     d_wmat[:,:] = errors*self.lrate_wmat
     d_wmat[self.link_mat==0] = 0
 
-    active_neighbors = self.link_mat.copy()
+    active_neighbors = self.link_mat.copy() * self.acts
     active_neighbors = np.sum(active_neighbors, axis=0)
 
-    d_wmat = np.where(active_neighbors != 0, d_wmat / active_neighbors.astype(np.float64), 0)
+    d_wmat = np.where(self.acts != 0, d_wmat / self.acts, 0)
     self.wmat -= d_wmat
 
     self.targets = self.targets + (errors*self.lrate_targ)
