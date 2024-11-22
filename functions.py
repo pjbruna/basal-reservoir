@@ -69,3 +69,22 @@ def plot_weights(weights, timesteps, rows, cols):
 
   plt.tight_layout()
   plt.show()
+
+def plot_activations(acts, timesteps):
+  data = np.array(acts)
+
+  timesteps = min(timesteps, data.shape[1])
+  data = data[:,-timesteps:]
+  time = np.arange(data.shape[1] - timesteps, data.shape[1])
+
+  plt.figure(figsize=(12, 8))
+  for i in range(data.shape[0]):
+      plt.plot(time, data[i, :], label=f'Node {i+1}', alpha=0.5)
+  
+  # Labeling the plot
+  plt.xlabel('Timesteps')
+  plt.ylabel('Activation')
+  plt.title(f'Node Values Over Last {timesteps} Timesteps')
+  plt.legend(loc='upper right')
+  plt.show()
+

@@ -141,7 +141,7 @@ class ResonanceNetwork:
 ## NON SPIKING RESERVOIR ##
 
 class SlimeMoldReservoir:
-  def __init__(self, input_nnodes=None, nnodes=None, p_link=None, leak=None, lrate_targ=None, lrate_wmat=None, targ_min=None):
+  def __init__(self, input_nnodes=None, nnodes=None, input_connectivity=None, p_link=None, leak=None, lrate_targ=None, lrate_wmat=None, targ_min=None):
     # Model hyperparameters
     self.nnodes = nnodes
     self.p_link = p_link
@@ -152,7 +152,7 @@ class SlimeMoldReservoir:
 
     if input_nnodes is not None:
       # Creat input layer and weights
-      self.input_wmat = np.random.choice([0,5], size=(input_nnodes, nnodes), p=[1-p_link, p_link]) # Try other weight values?
+      self.input_wmat = np.random.choice([0,1], size=(input_nnodes, nnodes), p=[1-input_connectivity, input_connectivity]) # Try other weight values?
 
       # Create internal weight matrix
       self.link_mat = np.random.choice([0,1], size=(nnodes, nnodes), p=[1-p_link, p_link])
@@ -161,48 +161,52 @@ class SlimeMoldReservoir:
       # Initialize reservoir state
       self.targets = np.repeat(targ_min, nnodes)
       self.acts = np.zeros(nnodes)
-  
-  def get_acts(self, input):
+
+  def learning(self, input):
     # Update activation in reservoir
-    self.acts = self.acts*self.leak + np.dot(input, self.input_wmat)
+    active_neighbors = (self.acts*self.leak)*self.wmat
+    self.acts = np.dot(input, self.input_wmat) + np.dot(self.acts*self.leak, self.wmat)
 
     # Log errors
     errors = self.acts-self.targets
 
-    return errors
-
-  def learning(self, errors):
+    # Update weights
     d_wmat = np.zeros((self.nnodes, self.nnodes))
     d_wmat[:,:] = errors*self.lrate_wmat
     d_wmat[self.link_mat==0] = 0
 
-    active_neighbors = self.link_mat.copy() * self.acts
-    active_neighbors = np.sum(active_neighbors, axis=0)
-
-    d_wmat = np.where(self.acts != 0, d_wmat / self.acts, 0)
+    active_neighbors = np.where(active_neighbors != 0, active_neighbors / np.sum(active_neighbors, axis=0), 0) # Modify weights proportional to incoming activation
+    # weight_resistance = np.where(self.wmat != 0, np.sign(self.wmat) * np.sqrt(np.abs(self.wmat)), 0) # Modify weights w.r.t. current weight value
+    d_wmat = d_wmat * active_neighbors # * (1 + weight_resistance)
     self.wmat -= d_wmat
 
     self.targets = self.targets + (errors*self.lrate_targ)
     self.targets[self.targets<self.targ_min] = self.targ_min
 
+    return errors
+
   def run(self, train_data, learn_on=True):
     # Store data
     log_acts = pd.DataFrame()
     log_wmat = pd.DataFrame()
+    log_errors = pd.DataFrame()
 
     # Run model on data
     for row in range(len(train_data)):
       input = train_data[row]
 
-      errors = self.get_acts(input)
+      # errors = self.get_acts(input)
 
       if learn_on==True:
-        self.learning(errors)
+        errors = self.learning(input)
 
       log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1)
       log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
+      log_errors = pd.concat([log_errors, pd.Series(errors)], ignore_index=True, axis=1)
 
-    return log_acts, log_wmat
+      print(self.targets)
+
+    return log_acts, log_wmat, log_errors
 
   def echo(self, cue):
     # Log current state of reservoir
