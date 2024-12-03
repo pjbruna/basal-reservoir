@@ -26,7 +26,7 @@ def correlate_states(train_data, cue_data):
 
 # Plot state correlations
 
-def plot_correlations(r_mat, train_labels, cue_labels):
+def plot_correlations(r_mat, train_labels, cue_labels, save=True):
   cmap = cm.get_cmap('RdYlBu', 7)
 
   fig, ax = plt.subplots()
@@ -51,7 +51,10 @@ def plot_correlations(r_mat, train_labels, cue_labels):
   fig.tight_layout()
   fig.set_size_inches(13.75, 10)
 
-  plt.show()
+  if save==True:
+    plt.savefig('figures/corr_mat.png')
+  else:
+    plt.show()
 
 # Plot weights over time
 
@@ -70,7 +73,7 @@ def plot_weights(weights, timesteps, rows, cols):
   plt.tight_layout()
   plt.show()
 
-def plot_activations(acts, timesteps):
+def plot_activations(acts, timesteps, save=True):
   data = np.array(acts)
 
   timesteps = min(timesteps, data.shape[1])
@@ -86,5 +89,9 @@ def plot_activations(acts, timesteps):
   plt.ylabel('Activation')
   plt.title(f'Node Values Over Last {timesteps} Timesteps')
   plt.legend(loc='upper right')
-  plt.show()
+
+  if save==True:
+    plt.savefig('figures/plot_acts.png')
+  else:
+    plt.show()
 

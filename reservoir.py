@@ -216,22 +216,23 @@ class SlimeMoldReservoir:
     # Store data
     log_acts = pd.DataFrame()
     log_wmat = pd.DataFrame()
+    log_errors = pd.DataFrame()
 
     # Run model on data
     for row in range(len(cue)):
       input = cue[row]
 
-      errors = self.get_acts(input)
-      self.learning(errors)
+      errors = self.learning(input)
 
-      log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1) # self.prespike_acts
+      log_acts = pd.concat([log_acts, pd.Series(self.acts)], ignore_index=True, axis=1)
       log_wmat = pd.concat([log_wmat, pd.Series(self.wmat.flatten())], ignore_index=True, axis=1)
+      log_errors = pd.concat([log_errors, pd.Series(errors)], ignore_index=True, axis=1)
 
     # Return state of reservoir
     self.targets = end_targets
     self.acts = end_acts
 
-    return log_acts, log_wmat
+    return log_acts, log_wmat, log_errors
   
 #  def save(self, filename="net.npz"):
 #    np.savez(filename, weights=self.wmat)
