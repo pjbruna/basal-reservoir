@@ -3,10 +3,12 @@ import scipy.stats
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib import cm
+from datetime import datetime
 
 ## HELPER FUNCTIONS ##
 
-# Correlation matrix between spike states
+
+# Correlation matrix between states
 
 def correlate_states(train_data, cue_data):
   plot_data = np.array(train_data.iloc[:,-12:])
@@ -24,7 +26,8 @@ def correlate_states(train_data, cue_data):
 
   return cor_matrix
 
-# Plot state correlations
+
+# Plot correlations
 
 def plot_correlations(r_mat, train_labels, cue_labels, save=True):
   cmap = cm.get_cmap('RdYlBu', 7)
@@ -52,26 +55,13 @@ def plot_correlations(r_mat, train_labels, cue_labels, save=True):
   fig.set_size_inches(13.75, 10)
 
   if save==True:
-    plt.savefig('figures/corr_mat.png')
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig(f'figures/corr_mat_{timestamp}.png')
   else:
     plt.show()
 
-# Plot weights over time
 
-def plot_weights(weights, timesteps, rows, cols):
-
-  fig, axes = plt.subplots(rows, cols, figsize=(15, 10))
-  axes = axes.flatten()
-
-  for t in range(timesteps):
-    matrix = np.array(weights.iloc[:,-(t+1)]).reshape((100,100))
-
-    im = axes[t].imshow(matrix, cmap='viridis', interpolation='nearest')
-    fig.colorbar(im, ax=axes[t])
-    axes[t].set_title(f"Time Step -{timesteps-t}")
-
-  plt.tight_layout()
-  plt.show()
+# Plot node activations over time
 
 def plot_activations(acts, timesteps, save=True):
   data = np.array(acts)
@@ -91,7 +81,45 @@ def plot_activations(acts, timesteps, save=True):
   plt.legend(loc='upper right')
 
   if save==True:
-    plt.savefig('figures/plot_acts.png')
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig(f'figures/plot_acts_{timestamp}.png')
   else:
     plt.show()
 
+
+# PCA on reservoir
+
+def plot_pca_explainedvar(explained_variance, save=True):
+  plt.figure(figsize=(8, 6))
+  plt.plot(np.cumsum(explained_variance), marker='o')
+  plt.xlabel('Number of Components')
+  plt.ylabel('Cumulative Explained Variance')
+  plt.title('Explained Variance by PCA Components')
+  plt.grid()
+
+  if save==True:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig(f'figures/pca_explained_var_{timestamp}.png')
+  else:
+    plt.show()
+
+
+def plot_pca_space(pc1, pc2, timesteps, save=True):
+  colors = timesteps
+
+  plt.figure(figsize=(8, 6))
+  plt.plot(pc1, pc2, color='gray', alpha=1, linestyle='dotted', linewidth=0.8)
+  scatter = plt.scatter(pc1, pc2, c=colors, cmap='viridis', alpha=0.8)
+  plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+  plt.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+  plt.title('PCA Space')
+  plt.xlabel('PC1')
+  plt.ylabel('PC2')
+  plt.colorbar(scatter, label='Time')
+  plt.grid()
+
+  if save==True:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    plt.savefig(f'figures/pca_{timestamp}.png')
+  else:
+    plt.show()

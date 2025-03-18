@@ -138,13 +138,14 @@ class ResonanceNetwork:
     print(f"Network loaded from {filename}")
 
 
+
 ## NON SPIKING RESERVOIR ##
 
 class SlimeMoldReservoir:
   def __init__(self, input_nnodes=None, nnodes=None, input_connectivity=None, p_link=None, leak=None, lrate_targ=None, lrate_wmat=None, targ_min=None):
     # Model hyperparameters
     self.nnodes = nnodes
-    self.p_link = p_link
+    # self.p_link = p_link
     self.leak = leak
     self.lrate_targ = lrate_targ
     self.lrate_wmat = lrate_wmat
@@ -152,10 +153,30 @@ class SlimeMoldReservoir:
 
     if input_nnodes is not None:
       # Creat input layer and weights
-      self.input_wmat = np.random.choice([0,1], size=(input_nnodes, nnodes), p=[1-input_connectivity, input_connectivity]) # Try other weight values?
+      self.input_wmat = np.random.choice([0,1], size=(input_nnodes, nnodes), p=[1-input_connectivity, input_connectivity])
 
       # Create internal weight matrix
-      self.link_mat = np.random.choice([0,1], size=(nnodes, nnodes), p=[1-p_link, p_link])
+      # self.link_mat = np.random.choice([0,1], size=(nnodes, nnodes), p=[1-p_link, p_link])
+
+      self.link_mat = np.zeros((nnodes, nnodes), dtype=int)
+
+      nrows = ncols = int(np.sqrt(nnodes))
+      for row in range(nrows):
+          for col in range(ncols):
+              node = row * ncols + col
+
+              # Right neighbor
+              if col < ncols - 1:
+                  right = node + 1
+                  self.link_mat[node, right] = 1
+                  self.link_mat[right, node] = 1  # Ensure symmetry
+
+              # Down neighbor
+              if row < nrows - 1:
+                  down = node + ncols
+                  self.link_mat[node, down] = 1
+                  self.link_mat[down, node] = 1  # Ensure symmetry
+
       self.wmat = np.where(self.link_mat == 1, np.random.normal(0, 1, size=(nnodes, nnodes)), 0)
 
       # Initialize reservoir state
@@ -212,6 +233,7 @@ class SlimeMoldReservoir:
     # Log current state of reservoir
     end_targets = self.targets
     end_acts = self.acts
+    end_wmat = self.wmat
 
     # Store data
     log_acts = pd.DataFrame()
@@ -231,6 +253,7 @@ class SlimeMoldReservoir:
     # Return state of reservoir
     self.targets = end_targets
     self.acts = end_acts
+    self.wmat = end_wmat
 
     return log_acts, log_wmat, log_errors
   
