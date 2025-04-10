@@ -7,11 +7,11 @@ from functions import plot_pca_explainedvar, plot_pca_space, plot_correlations, 
 
 # Hyperparams
 timesteps = 50
-savefig = True
+savefig = False
 
 # Create oscillatory regime
-train_data = [[0, 1], [1, 0]] * (timesteps // 2)
-train_labels = ['1', '2'] * (timesteps // 2)
+train_data = [[0], [1]] * (timesteps // 2)
+train_labels = ['0', '1'] * (timesteps // 2)
 
 # Create and train the model
 model = SlimeMoldReservoir(
@@ -24,7 +24,7 @@ model = SlimeMoldReservoir(
     lrate_wmat=0.1,
     targ_min=1.0,
     network_type='hexagonal',  # you can also try 'grid', 'hexagonal', or 'random'
-    seed=42,
+    seed=None,
     decay_rate=0.00
 )
 
@@ -53,8 +53,8 @@ timesteps_arr = np.arange(res_states.shape[0])
 plot_pca_space(pc1, pc2, timesteps_arr, save=savefig)
 
 # Cue trained model
-cue = [[0, 0]] * 4
-cue_labels = ['NA'] * 4
+cue = [[0], [0]] * 2
+cue_labels = ['NA', 'NA'] * 2
 
 cue_results = model.echo(cue)
 
@@ -67,5 +67,5 @@ plot_correlations(cue1_cor_matrix, train_labels, cue_labels, save=savefig)
 print(cue_states.sum(axis=0))  # Fading memory
 
 
-model.animate_weight_and_activation(save_path="weight_evolution.mp4")
+# model.animate_weight_and_activation(save_path="weight_evolution.mp4")
 
