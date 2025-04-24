@@ -11,7 +11,7 @@ savefig = False
 
 # Create oscillatory regime
 train_data = [[0], [1]] * (timesteps // 2)
-train_labels = ['0', '1'] * (timesteps // 2)
+train_labels = ['OFF', 'ON'] * (timesteps // 2)
 
 # Create and train the model
 model = SlimeMoldReservoir(
@@ -36,6 +36,7 @@ model.print_network_info()
 
 # Run training
 results = model.run(train_data)
+
 
 # PCA
 res_states = np.array(results[0]).T  # shape: (timesteps, nnodes)
@@ -68,4 +69,3 @@ print(cue_states.sum(axis=0))  # Fading memory
 
 
 # model.animate_weight_and_activation(save_path="weight_evolution.mp4")
-

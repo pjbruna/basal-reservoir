@@ -1,0 +1,89 @@
+---
+title: "Analysis"
+output: html_document
+date: "2025-04-24"
+---
+
+```{r}
+library(tidyverse)
+```
+# Compile data
+
+```{r}
+train_labels = rep(c("OFF", "ON"), 25)
+col_names = c(paste0("X", as.character(seq(0, 47))), "label", "phase", "run")
+
+sim_data <- setNames(data.frame(matrix(ncol = length(48), nrow = 0)), colnames(col_names))
+
+for(i in c(0:99)){
+  train_data <- read.csv(paste0("data/train_sim_", i, ".csv")) %>%
+    mutate(label = train_labels,
+           phase = "train",
+           run = i)
+  
+  cue_data <- read.csv(paste0("data/cue_sim_", i, ".csv")) %>%
+    mutate(label = c("OFF", "OFF", "OFF", "OFF"),
+           phase = "cue",
+           run = i)
+  
+  data = rbind(train_data, cue_data)
+  
+  sim_data <- rbind(sim_data, data)
+}
+
+sim_data <- sim_data %>%
+  group_by(run) %>%
+  mutate(timestep = row_number())
+```
+
+# Calculate correlation matrix per simulation
+
+```{r}
+calculate_correlation <- function(data_1, data_2){
+  test_state <- data_2 %>%
+    head(1) %>%
+    select(!c(label, phase, timestep, run)) %>%
+    pivot_longer(cols = everything(), names_to = "node", values_to = "activation")
+  
+  possible_inputs <- c()
+  correlations <- c()
+  for(k in 1:nrow(data_1)){
+    end_input <- data_1$label[k]
+    end_state <- data_1[k,] %>%
+      select(!c(label, phase, timestep, run)) %>%
+      pivot_longer(cols = everything(), names_to = "node", values_to = "activation")
+      
+    possible_inputs[k] <- end_input
+    correlations[k] <- cor(test_state$activation, end_state$activation)
+  }
+  
+  df <- data.frame(possible_inputs, correlations)
+  
+  return(df)
+}
+```
+
+```{r}
+corr_data <- setNames(data.frame(matrix(ncol = length(3), nrow = 0)), colnames(c("possible_inputs", "correlations", "run")))
+
+for(i in c(0:99)){
+  train <- sim_data %>% filter(run == i, phase == "train")
+  cue <- sim_data %>% filter(run == i, phase == "cue")
+  
+  corrs <- calculate_correlation(run0_train, run0_cue) %>%
+    mutate(run = i,
+           timestep = row_number())
+  
+  corr_data <- rbind(corr_data, corrs)
+}
+
+corr_data %>%
+  # filter(!is.na(correlations)) %>%
+  group_by(timestep, possible_inputs) %>%
+  summarize(mean_r = mean(correlations))
+```
+
+```{r}
+
+```
+
