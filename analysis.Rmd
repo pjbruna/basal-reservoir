@@ -33,57 +33,113 @@ for(i in c(0:99)){
 
 sim_data <- sim_data %>%
   group_by(run) %>%
-  mutate(timestep = row_number())
+  mutate(timestep = row_number()) %>%
+  filter(timestep != 1)
 ```
 
-# Calculate correlation matrix per simulation
+# Correlation matrix
 
 ```{r}
-calculate_correlation <- function(data_1, data_2){
-  test_state <- data_2 %>%
-    head(1) %>%
-    select(!c(label, phase, timestep, run)) %>%
-    pivot_longer(cols = everything(), names_to = "node", values_to = "activation")
+last_16 <- sim_data %>%
+  filter(timestep %in% as.character(c(39:54))) %>%
+  group_by(run) %>%
+  mutate(label = paste0(label, "_", row_number()))
+```
+
+```{r}
+cor_df <- setNames(data.frame(matrix(ncol = 4, nrow = 0)), colnames(c("run", "correlation", "x_label", "y_label")))
+
+for(r in unique(last_16$run)){
+  simulation <- last_16 %>% filter(run == r)
   
-  possible_inputs <- c()
-  correlations <- c()
-  for(k in 1:nrow(data_1)){
-    end_input <- data_1$label[k]
-    end_state <- data_1[k,] %>%
-      select(!c(label, phase, timestep, run)) %>%
-      pivot_longer(cols = everything(), names_to = "node", values_to = "activation")
-      
-    possible_inputs[k] <- end_input
-    correlations[k] <- cor(test_state$activation, end_state$activation)
+  for(i in 1:nrow(simulation)){
+    x <- as.vector(unlist(simulation[i,1:48]))
+    x_lab <- simulation$label[i]
+    
+    for(j in 1:nrow(simulation)){
+      if(j>=i){
+        y <- as.vector(unlist(simulation[j,1:48]))
+        y_lab <- simulation$label[j]
+        cor <- cor(x,y)
+        
+        temp_df <- data.frame(run = r, correlation = cor, x_label = x_lab, y_label = y_lab)
+        cor_df <- rbind(cor_df, temp_df)
+        
+      } else {
+        temp_df <- data.frame(run = r, correlation = NA, x_label = x_lab, y_label = y_lab)
+        cor_df <- rbind(cor_df, temp_df)
+      }
+    }
   }
-  
-  df <- data.frame(possible_inputs, correlations)
-  
-  return(df)
 }
 ```
 
 ```{r}
-corr_data <- setNames(data.frame(matrix(ncol = length(3), nrow = 0)), colnames(c("possible_inputs", "correlations", "run")))
+avg_cor_df <- cor_df %>%
+  mutate(x = as.numeric(sub(".*_", "", x_label)),
+         y = as.numeric(sub(".*_", "", y_label))) %>%
+  filter(!is.na(correlation)) %>%
+  group_by(x, y, x_label, y_label) %>%
+  summarise(avg_r = mean(correlation))
 
-for(i in c(0:99)){
-  train <- sim_data %>% filter(run == i, phase == "train")
-  cue <- sim_data %>% filter(run == i, phase == "cue")
-  
-  corrs <- calculate_correlation(run0_train, run0_cue) %>%
-    mutate(run = i,
-           timestep = row_number())
-  
-  corr_data <- rbind(corr_data, corrs)
-}
+avg_cor_df$y <- factor(avg_cor_df$y, levels = 16:1)
 
-corr_data %>%
-  # filter(!is.na(correlations)) %>%
-  group_by(timestep, possible_inputs) %>%
-  summarize(mean_r = mean(correlations))
+ggplot(avg_cor_df, aes(x, y, fill=avg_r)) +
+  geom_tile() +
+  scale_x_discrete(limits = c(1:16), labels = c(rep(c("OFF", "ON"), 6), "OFF", "OFF", "OFF", "OFF")) +
+  scale_y_discrete(limits = c(16:1), labels = c(rep(c("OFF", "ON"), 6), "OFF", "OFF", "OFF", "OFF")) +
+  # scale_fill_continuous(limits = c(-1,1)) +
+  scale_fill_viridis_c(option = "viridis", direction = -1, limits = c(-1,1)) +
+  labs(fill = "Avg. R") +
+  geom_text(aes(label = round(avg_r, 2)), color = "white", size = 2) + 
+  annotate(
+    "rect",
+    xmin = 0.5, xmax = 13.5,
+    ymin = 0.5, ymax = 3.5,
+    color = "red",
+    fill = NA,
+    linetype = "dashed",
+    size = 1
+  ) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid.major = element_blank())
+
+# ggsave(filename = "figures/avg_cormatrix.png")
 ```
 
 ```{r}
+next_step_df <- cor_df %>%
+  mutate(x = as.numeric(sub(".*_", "", x_label)),
+         y = as.numeric(sub(".*_", "", y_label)),
+         x_label = sub("_.*", "", x_label),
+         y_label = sub("_.*", "", y_label)) %>%
+  filter(y == "14", x %in% c(1:13)) %>%
+  rename("possible_input" = x_label) %>%
+  select(run, possible_input, correlation) %>%
+  mutate(possible_input = factor(possible_input, levels = c("OFF", "ON")))
 
+ggplot(next_step_df, aes(possible_input, correlation)) +
+  geom_point(alpha = 0.1) +
+  geom_boxplot(alpha=0) +
+  scale_y_continuous(limits = c(-0.25,1.1), breaks = seq(-0.25,1,0.25)) +
+  labs(x = "State", y = "R") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank()) +
+  stat_compare_means(method = "t.test", label = "p.signif", comparisons = list(c("OFF", "ON")), label.y = c(1))
+
+# ggsave(filename = "figures/next_step_pred.png")
 ```
 
+```{r}
+off_values <- next_step_df %>%
+  mutate(fisher_z = 0.5 * (log(1+correlation) - log(1-correlation))) %>%
+  filter(possible_input == "OFF")
+
+on_values <- next_step_df %>%
+  mutate(fisher_z = 0.5 * (log(1+correlation) - log(1-correlation))) %>%
+  filter(possible_input == "ON")
+
+t.test(on_values$fisher_z, off_values$fisher_z, alternative = "greater")
+```
