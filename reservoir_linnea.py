@@ -376,6 +376,7 @@ class SlimeMoldReservoir:
 
   def _initialize_weights(self):
     self.wmat = np.where(self.link_mat == 1, np.random.normal(0, 1, size=(self.nnodes, self.nnodes)), 0)
+    # self.wmat = np.where(self.link_mat == 1, np.random.normal(1, 0, size=(self.nnodes, self.nnodes)), 0) # initialize all weights at 1
     self._save_weights()
 
   def _save_weights(self):

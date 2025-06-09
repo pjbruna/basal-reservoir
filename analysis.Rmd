@@ -6,23 +6,27 @@ date: "2025-04-24"
 
 ```{r}
 library(tidyverse)
+library(ggpubr)
+library(patchwork)
 ```
+
+
 # Compile data
 
 ```{r}
-train_labels = rep(c("OFF", "ON"), 25)
+train_labels = rep(c("ON", "OFF"), 250)
 col_names = c(paste0("X", as.character(seq(0, 47))), "label", "phase", "run")
 
 sim_data <- setNames(data.frame(matrix(ncol = length(48), nrow = 0)), colnames(col_names))
 
 for(i in c(0:99)){
-  train_data <- read.csv(paste0("data/train_sim_", i, ".csv")) %>%
+  train_data <- read.csv(paste0("data_newparam500/act_train_sim_", i, ".csv")) %>%
     mutate(label = train_labels,
            phase = "train",
            run = i)
   
-  cue_data <- read.csv(paste0("data/cue_sim_", i, ".csv")) %>%
-    mutate(label = c("OFF", "OFF", "OFF", "OFF"),
+  cue_data <- read.csv(paste0("data_newparam500/act_cue_sim_", i, ".csv")) %>%
+    mutate(label = rep("OFF", 4),
            phase = "cue",
            run = i)
   
@@ -41,7 +45,7 @@ sim_data <- sim_data %>%
 
 ```{r}
 last_16 <- sim_data %>%
-  filter(timestep %in% as.character(c(39:54))) %>%
+  filter(timestep %in% as.character(c(489:504))) %>%
   group_by(run) %>%
   mutate(label = paste0(label, "_", row_number()))
 ```
@@ -84,18 +88,18 @@ avg_cor_df <- cor_df %>%
 
 avg_cor_df$y <- factor(avg_cor_df$y, levels = 16:1)
 
-ggplot(avg_cor_df, aes(x, y, fill=avg_r)) +
+cormat <- ggplot(avg_cor_df, aes(x, y, fill=avg_r)) +
   geom_tile() +
-  scale_x_discrete(limits = c(1:16), labels = c(rep(c("OFF", "ON"), 6), "OFF", "OFF", "OFF", "OFF")) +
-  scale_y_discrete(limits = c(16:1), labels = c(rep(c("OFF", "ON"), 6), "OFF", "OFF", "OFF", "OFF")) +
+  scale_x_discrete(limits = c(1:16), labels = c(rep(c("ON", "OFF"), 6), "OFF", "OFF", "OFF", "OFF")) +
+  scale_y_discrete(limits = c(16:1), labels = c(rep(c("ON", "OFF"), 6), "OFF", "OFF", "OFF", "OFF")) +
   # scale_fill_continuous(limits = c(-1,1)) +
   scale_fill_viridis_c(option = "viridis", direction = -1, limits = c(-1,1)) +
   labs(fill = bquote(italic(r))) +
-  geom_text(aes(label = round(avg_r, 2)), color = "white", size = 2) + 
+  geom_text(aes(label = round(avg_r, 2)), color = "white", size = 3) + 
   annotate(
     "rect",
     xmin = 0.5, xmax = 13.5,
-    ymin = 0.5, ymax = 3.5,
+    ymin = 0.5, ymax = 4.5,
     color = "red",
     fill = NA,
     linetype = "dashed",
@@ -110,8 +114,12 @@ ggplot(avg_cor_df, aes(x, y, fill=avg_r)) +
         legend.text = element_text(size = 10),
         legend.title = element_text(size = 15))
 
+cormat
+
 # ggsave(filename = "figures/avg_cormatrix.png", width = 7, height = 6)
 ```
+
+# Comparison
 
 ```{r}
 next_step_df <- cor_df %>%
@@ -119,15 +127,15 @@ next_step_df <- cor_df %>%
          y = as.numeric(sub(".*_", "", y_label)),
          x_label = sub("_.*", "", x_label),
          y_label = sub("_.*", "", y_label)) %>%
-  filter(y == "14", x %in% c(1:13)) %>%
+  filter(y == "13", x %in% c(1:12)) %>%
   rename("possible_input" = x_label) %>%
   select(run, possible_input, correlation) %>%
   mutate(possible_input = factor(possible_input, levels = c("OFF", "ON")))
 
-ggplot(next_step_df, aes(possible_input, correlation)) +
+nextsteppred <- ggplot(next_step_df, aes(possible_input, correlation)) +
   geom_point(alpha = 0.1) +
   geom_boxplot(alpha=0) +
-  scale_y_continuous(limits = c(-0.25,1.1), breaks = seq(-0.25,1,0.25)) +
+  scale_y_continuous(limits = c(-0.3,1.1), breaks = seq(-0.3,1,0.25)) +
   labs(x = "State", y = "r") +
   theme_bw() +
   theme(panel.grid.major = element_blank(),
@@ -139,6 +147,13 @@ ggplot(next_step_df, aes(possible_input, correlation)) +
 
 # ggsave(filename = "figures/next_step_pred.png")
 ```
+
+```{r}
+cormat + plot_spacer() + nextsteppred + plot_layout(ncol = 3, widths = c(1, 0.2, 1))
+
+# ggsave(filename = "figures/correlations.png", width = 15, height = 7)
+```
+
 
 ```{r}
 off_values <- next_step_df %>%
@@ -157,4 +172,234 @@ next_step_df %>%
   group_by(possible_input) %>%
   summarize(m = mean(correlation), sd = sd(correlation))
 ```
+
+# Weights
+
+```{r}
+col_names = c(paste0("X", as.character(seq(0, 47))), "run")
+
+w_data <- setNames(data.frame(matrix(ncol = length(48^2), nrow = 0)), colnames(col_names))
+
+for(i in c(0:99)){
+  train_data <- read.csv(paste0("data_newparam500/w_train_sim_", i, ".csv")) %>%
+    mutate(run = i)
+  
+  w_data <- rbind(w_data, train_data)
+}
+
+w_data <- w_data %>%
+  group_by(run) %>%
+  mutate(time = row_number())
+```
+
+```{r}
+w_start1 <- w_data %>%
+  filter(run == 0, time == 1) %>%
+  select(!run) %>%
+  matrix(nrow = 48, ncol = 48, byrow = T)
+
+if (is.null(rownames(w_start1))) {
+  rownames(w_start1) <- colnames(w_start1)
+}
+
+w_start1_df <- w_start1 %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "from") %>%
+  pivot_longer(-from, names_to = "to", values_to = "value") %>%
+  mutate(to = sub("^.", "", to))
+
+w_start1_df$value <- as.numeric(w_start1_df$value)
+w_start1_df$from <- as.numeric(w_start1_df$from)
+w_start1_df$to <- as.numeric(w_start1_df$to)
+
+t1 <- ggplot(w_start1_df, aes(x = to, y = from, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(
+   low = "red", mid = "white", high = "blue",
+   midpoint = 0, limits = c(-3, 3),
+   na.value = "white"
+  ) +
+  labs(title = "t=1", x = "To Node", y = "From Node", fill = "Weight") +
+  theme_bw() +
+  coord_fixed() +
+  theme(axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 25),
+        axis.text.y = element_text(size = 25),
+        title = element_text(size = 25),
+        panel.grid = element_blank())
+```
+
+```{r}
+w_start50 <- w_data %>%
+  filter(run == 0, time == 500) %>%
+  select(!run) %>%
+  matrix(nrow = 48, ncol = 48, byrow = T)
+
+if (is.null(rownames(w_start50))) {
+  rownames(w_start50) <- colnames(w_start50)
+}
+
+w_start50_df <- w_start50 %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "from") %>%
+  pivot_longer(-from, names_to = "to", values_to = "value") %>%
+  mutate(to = sub("^.", "", to))
+
+w_start50_df$value <- as.numeric(w_start50_df$value)
+w_start50_df$from <- as.numeric(w_start50_df$from)
+w_start50_df$to <- as.numeric(w_start50_df$to)
+
+t50 <- ggplot(w_start50_df, aes(x = to, y = from, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "red", mid = "white", high = "blue", 
+    midpoint = 0, limits = c(-3, 3),
+    na.value = "white"
+  ) +
+  labs(title = "t=500", x = "To Node", y = "From Node", fill = "Weight") +
+  theme_bw() +
+  coord_fixed() +
+  theme(axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 25),
+        axis.text.y = element_text(size = 25),
+        title = element_text(size = 25),
+        panel.grid = element_blank())
+```
+
+```{r}
+t1 + t50 + 
+  plot_layout(guides = "collect")
+
+# ggsave(filename = "figures/weightsprepost.png", width = 12, height = 7)
+```
+
+# PCA
+
+```{r}
+pca_data <- sim_data %>%
+  filter(run==0, phase=="train") %>%
+  ungroup() %>%
+  select(!c(label, phase, run, timestep))
+
+pca <- prcomp(pca_data, center=T, scale.=T)
+```
+
+```{r}
+explained_variance_0 <- pca$sdev^2 / sum(pca$sdev^2)
+cumulative_variance_0 <- cumsum(explained_variance_0)
+
+variance_df_0 <- data.frame(comp = seq_along(cumulative_variance_0),
+                            cumvar = cumulative_variance_0)
+
+ggplot(variance_df_0, aes(x = comp, y = cumvar)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Cumulative Explained Variance", x = "Principal Component", y = "Cumulative Variance Explained") +
+  theme_bw()
+```
+
+```{r}
+pc_df <- as.data.frame(pca$x[, 1:3])
+colnames(pc_df) <- c("PC1", "PC2", "PC3")
+
+pc_df <- pc_df %>%
+  mutate(Timestep = row_number())
+
+ggplot(pc_df, aes(x = PC1, y = PC2, color = Timestep)) +
+  geom_path(alpha = 0.2, color = "black", linetype = "dotted") +
+  geom_point(alpha = 0.5) +
+  scale_color_viridis_c() +
+  labs(x = "PC1", y = "PC2", color = "Time step") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+
+ggplot(pc_df, aes(x = PC1, y = PC3, color = Timestep)) +
+  geom_path(alpha = 0.2, color = "black", linetype = "dotted") +
+  geom_point(alpha = 0.5) +
+  scale_color_viridis_c() +
+  labs(x = "PC1", y = "PC3", color = "Time step") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+
+ggplot(pc_df, aes(x = PC2, y = PC3, color = Timestep)) +
+  geom_path(alpha = 0.2, color = "black", linetype = "dotted") +
+  geom_point(alpha = 0.5) +
+  scale_color_viridis_c() +
+  labs(x = "PC2", y = "PC3", color = "Time step") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+```
+
+```{r}
+library(plotly)
+
+plot_ly(pc_df, 
+        x = ~PC1, 
+        y = ~PC2, 
+        z = ~PC3, 
+        color = ~Timestep,
+        type = "scatter3d", 
+        mode = "lines+markers",
+        marker = list(size = 3)) %>%
+  layout(scene = list(xaxis = list(title = 'PC1'),
+                      yaxis = list(title = 'PC2'),
+                      zaxis = list(title = 'PC3')))
+```
+
+# PCA over runs
+
+```{r}
+sims_pc_df <- setNames(data.frame(matrix(ncol = length(5), nrow = 0)), colnames(c("PC1", "PC2", "PC3", "run", "timestep")))
+
+for(i in c(0:99)){
+  pca_data <- sim_data %>%
+    filter(run==i, phase=="train") %>%
+    ungroup() %>%
+    select(!c(label, phase, run, timestep))
+  
+  pca <- prcomp(pca_data, center=T, scale.=T)
+  
+  pc_df <- as.data.frame(pca$x[, 1:3])
+  colnames(pc_df) <- c("PC1", "PC2", "PC3")
+  
+  pc_df <- pc_df %>%
+    mutate(run = i, timestep = row_number())
+  
+  sims_pc_df <- rbind(sims_pc_df, pc_df)
+}
+```
+
+```{r}
+avg_pc <- sims_pc_df %>%
+  pivot_longer(cols = c("PC1", "PC2", "PC3"), names_to = "PC", values_to = "value") %>%
+  group_by(PC, timestep) %>%
+  summarise(m = mean(value), se = sd(value)/sqrt(n()))
+
+ggplot(avg_pc%>% filter(timestep >= 480), aes(x=timestep, y=m, fill = PC, color=PC)) +
+  facet_wrap(~PC, ncol = 1, scale = "free") +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.1, linetype = 0) +
+  geom_line() + 
+  labs(x = "Timestep", y = "Value") +
+  xlim(480, 500) +
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15))
+
+# ggsave(filename = "figures/pc_over_time.png")
+```
+
 
